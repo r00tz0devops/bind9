@@ -15,4 +15,4 @@ jobs:
 
       - name: Run DNS Serial Update Script
         run: |
-          sudo /bin/bash /etc/bind/scripts/update_serial.sh
+          sudo -n /bin/bash /etc/bind/scripts/update_serial.sh
