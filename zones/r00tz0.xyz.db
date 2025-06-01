@@ -1,0 +1,35 @@
+$TTL    604800
+@       IN      SOA     ns1.r00tz0.xyz. admin.r00tz0.xyz. (
+                              2025050444 ; Serial
+                              604800     ; Refresh
+                               86400     ; Retry
+                             2419200     ; Expire
+                              604800 )   ; Negative Cache TTL
+
+        IN      NS      ns1.r00tz0.xyz.
+
+ns1     IN      A       10.0.1.4
+@       IN      A       10.0.1.4
+www     IN      A       10.0.1.11
+mail    IN      A       10.0.1.83
+@       IN      MX 10   mail.r00tz0.xyz.
+proxmox IN      A      10.0.1.3 
+fw      IN      A      10.0.1.1
+
+portainer    IN      A      10.0.1.6
+awx          IN      A      10.0.1.7 
+dash         IN      A      10.0.1.6
+traefik      IN      A      10.0.1.6
+prometheus   IN      A      10.0.1.6
+grafana      IN      A      10.0.1.6
+mc           IN      A      10.0.1.54
+jellyfin     IN      A      10.0.1.6
+authentik    IN      A      10.0.1.6
+gitlab        IN      A      10.0.1.6
+vaultwarden    IN      A      10.0.1.6
+pve-bk         IN      A      10.0.1.89
+dsm		 IN      A      10.0.1.83
+xcp		 IN      A      10.0.1.80
+xo		 IN      A      10.0.1.99
+coder            IN      A      10.0.1.6
+vscode         IN      A      10.0.1.6

@@ -1,0 +1,4 @@
+zone "r00tz0.xyz" {
+    type master;
+    file "/etc/bind/zones/r00tz0.xyz.db";
+};
