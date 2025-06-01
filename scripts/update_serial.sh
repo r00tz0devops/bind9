@@ -10,7 +10,7 @@ for zone in $(find $ZONES_DIR -type f -name "*.db"); do
   echo "[INFO] Checking $zone..." >> /var/log/bind_serial_update.log
 
   # Get current serial line
-  current_serial=$(grep -E '^[[:space:]]*[0-9]{10}[[:space:]]*;[[:space:]]*Serial' "$zone" | awk '{print $1}')
+  ccurrent_serial=$(grep -oP '^\s*\d{10}(?=\s*;\s*Serial)' "$zone")
 
   if [[ -n "$current_serial" ]]; then
     base_serial=${current_serial:0:8}
