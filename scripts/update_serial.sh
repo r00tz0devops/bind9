@@ -36,6 +36,14 @@ for zone in "$ZONES_SRC"/*.db; do
   fi
 done
 
+# Ensure all zone files end with a newline
+for zone_file in "$ZONES_SRC"/*.db; do
+  if [[ -f "$zone_file" ]] && [[ $(tail -c1 "$zone_file" | wc -l) -eq 0 ]]; then
+    echo >> "$zone_file"
+    echo "[FIXED] Added newline to end of $zone_file" >> "$LOG_FILE"
+  fi
+done
+
 # Validate and copy
 echo "[INFO] Validating and syncing zones..." >> "$LOG_FILE"
 
