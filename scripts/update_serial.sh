@@ -1,5 +1,7 @@
 #!/bin/bash
-set -xe  # Debug: show commands and exit on error
+set -e
+
+# Usage: ./update_bind_zones.sh [-d|--dry-run] [-v|--verbose]
 
 ZONES_SRC="/home/pablo/actions-runner/ns1Update/bind9/bind9/zones"
 ZONES_DEST="/etc/bind/zones"
@@ -7,72 +9,97 @@ DATE=$(date +%Y%m%d)
 USER=$(whoami)
 LOG_FILE="/var/log/bind_serial_update.log"
 
-echo "[INFO] Starting BIND zone serial update on $(date) by user: $USER" >> "$LOG_FILE"
-echo "[INFO] Source zone path: $ZONES_SRC" >> "$LOG_FILE"
-echo "[INFO] Destination zone path: $ZONES_DEST" >> "$LOG_FILE"
-ls -l "$ZONES_SRC" >> "$LOG_FILE"
+DRY_RUN=0
+VERBOSE=0
 
-# Update serial numbers in zone files
-for zone in "$ZONES_SRC"/*.db; do
-  echo "[INFO] Checking $zone..." >> "$LOG_FILE"
-  
-  current_serial=$(grep -oP '^\s*\d{10}(?=\s*;\s*Serial)' "$zone")
+# Parse options
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -d|--dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    -v|--verbose)
+      VERBOSE=1
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+  esac
+done
 
-  if [[ -n "$current_serial" ]]; then
-    base_serial=${current_serial:0:8}
-    revision=${current_serial:8:2}
+log() {
+  local msg="$1"
+  echo "[$(date +'%Y-%m-%d %H:%M:%S')] $msg" >> "$LOG_FILE"
+  if [[ $VERBOSE -eq 1 ]]; then
+    echo "$msg"
+  fi
+}
 
-    if [[ "$base_serial" == "$DATE" ]]; then
-      revision=$((10#$revision + 1))  # handle leading zeros properly
-    else
-      revision=1
-    fi
-
-    new_serial="${DATE}$(printf '%02d' "$revision")"
-    sed -i "s/$current_serial[[:space:]]*;[[:space:]]*Serial/$new_serial ; Serial/" "$zone"
-    echo "[UPDATED] $zone: $current_serial -> $new_serial" >> "$LOG_FILE"
+run_cmd() {
+  local cmd="$1"
+  if [[ $DRY_RUN -eq 1 ]]; then
+    log "[DRY-RUN] $cmd"
   else
-    echo "[SKIPPED] $zone: No serial found." >> "$LOG_FILE"
+    log "[RUN] $cmd"
+    eval "$cmd"
   fi
-done
+}
 
-# Ensure all zone files end with a newline
-for zone_file in "$ZONES_SRC"/*.db; do
-  if [[ -f "$zone_file" ]] && [[ $(tail -c1 "$zone_file" | wc -l) -eq 0 ]]; then
-    echo >> "$zone_file"
-    echo "[FIXED] Added newline to end of $zone_file" >> "$LOG_FILE"
+log "Starting BIND zone serial update by user: $USER"
+
+for zone in "$ZONES_SRC"/*.db; do
+  log "Processing $zone"
+
+  current_serial=$(grep -oP '^\s*\d{10}(?=\s*;\s*Serial)' "$zone" || true)
+  if [[ -z "$current_serial" ]]; then
+    log "[WARN] No serial found in $zone, skipping."
+    continue
   fi
-done
 
-# Validate zone files and copy to destination
-echo "[INFO] Validating and syncing zones..." >> "$LOG_FILE"
-validation_failed=0
+  base_serial=${current_serial:0:8}
+  revision=${current_serial:8:2}
 
-for zone_file in "$ZONES_SRC"/*.db; do
-  zone_name=$(basename "$zone_file")
+  if [[ "$base_serial" == "$DATE" ]]; then
+    revision=$((10#$revision + 1))
+  else
+    revision=1
+  fi
+
+  new_serial="${DATE}$(printf '%02d' "$revision")"
+
+  if [[ $DRY_RUN -eq 0 ]]; then
+    sed -i "s/$current_serial[[:space:]]*;[[:space:]]*Serial/$new_serial ; Serial/" "$zone"
+  else
+    log "[DRY-RUN] Would update serial $current_serial to $new_serial in $zone"
+  fi
+
+  log "Updated $zone: $current_serial -> $new_serial"
+
+  zone_name=$(basename "$zone")
   zone_short=${zone_name%.db}
 
-  echo "[VALIDATING] Zone file: $zone_name as $zone_short" >> "$LOG_FILE"
-  if named-checkzone "$zone_short" "$zone_file" >> "$LOG_FILE" 2>&1; then
-    echo "[VALID] $zone_name" >> "$LOG_FILE"
-    cp "$zone_file" "$ZONES_DEST/$zone_name"
-    chown bind:bind "$ZONES_DEST/$zone_name"
-    chmod 644 "$ZONES_DEST/$zone_name"
-    echo "[SYNCED] $zone_file → $ZONES_DEST/$zone_name" >> "$LOG_FILE"
+  # Validate zone
+  if [[ $DRY_RUN -eq 0 ]]; then
+    if ! named-checkzone "$zone_short" "$zone" >> "$LOG_FILE" 2>&1; then
+      log "[ERROR] named-checkzone failed for $zone_short"
+      exit 1
+    fi
+    log "named-checkzone passed for $zone_short"
   else
-    echo "[ERROR] Zone validation failed: $zone_name" >> "$LOG_FILE"
-    validation_failed=1
+    log "[DRY-RUN] Would run named-checkzone for $zone_short"
   fi
+
+  # Copy zone file to destination with correct ownership and permissions
+  run_cmd "sudo cp \"$zone\" \"$ZONES_DEST/$zone_name\""
+  run_cmd "sudo chown bind:bind \"$ZONES_DEST/$zone_name\""
+  run_cmd "sudo chmod 644 \"$ZONES_DEST/$zone_name\""
+
+  log "Synced $zone → $ZONES_DEST/$zone_name"
 done
 
-# Reload BIND only if all validations passed
-if [[ $validation_failed -eq 0 ]]; then
-  echo "[INFO] Reloading BIND..." >> "$LOG_FILE"
-  if systemctl reload bind9 >> "$LOG_FILE" 2>&1; then
-    echo "[SUCCESS] BIND reloaded." >> "$LOG_FILE"
-  else
-    echo "[ERROR] Failed to reload BIND." >> "$LOG_FILE"
-  fi
-else
-  echo "[ERROR] Not reloading BIND due to validation failures." >> "$LOG_FILE"
-fi
+# Reload BIND
+run_cmd "sudo systemctl reload bind9"
+log "BIND reload complete."
