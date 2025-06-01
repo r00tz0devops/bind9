@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe  # Debugging: show each command and exit on error
+set -xe  # Debug: show commands and exit on error
 
 ZONES_SRC="/home/pablo/actions-runner/ns1Update/bind9/bind9/zones"
 ZONES_DEST="/etc/bind/zones"
@@ -12,7 +12,7 @@ echo "[INFO] Source zone path: $ZONES_SRC" >> "$LOG_FILE"
 echo "[INFO] Destination zone path: $ZONES_DEST" >> "$LOG_FILE"
 ls -l "$ZONES_SRC" >> "$LOG_FILE"
 
-# Update serials
+# Update serial numbers in zone files
 for zone in "$ZONES_SRC"/*.db; do
   echo "[INFO] Checking $zone..." >> "$LOG_FILE"
   
@@ -23,7 +23,7 @@ for zone in "$ZONES_SRC"/*.db; do
     revision=${current_serial:8:2}
 
     if [[ "$base_serial" == "$DATE" ]]; then
-      revision=$((revision + 1))
+      revision=$((10#$revision + 1))  # handle leading zeros properly
     else
       revision=1
     fi
@@ -44,8 +44,9 @@ for zone_file in "$ZONES_SRC"/*.db; do
   fi
 done
 
-# Validate and copy
+# Validate zone files and copy to destination
 echo "[INFO] Validating and syncing zones..." >> "$LOG_FILE"
+validation_failed=0
 
 for zone_file in "$ZONES_SRC"/*.db; do
   zone_name=$(basename "$zone_file")
@@ -60,13 +61,18 @@ for zone_file in "$ZONES_SRC"/*.db; do
     echo "[SYNCED] $zone_file → $ZONES_DEST/$zone_name" >> "$LOG_FILE"
   else
     echo "[ERROR] Zone validation failed: $zone_name" >> "$LOG_FILE"
+    validation_failed=1
   fi
 done
 
-# Reload BIND
-echo "[INFO] Reloading BIND..." >> "$LOG_FILE"
-if systemctl reload bind9 >> "$LOG_FILE" 2>&1; then
-  echo "[SUCCESS] BIND reloaded." >> "$LOG_FILE"
+# Reload BIND only if all validations passed
+if [[ $validation_failed -eq 0 ]]; then
+  echo "[INFO] Reloading BIND..." >> "$LOG_FILE"
+  if systemctl reload bind9 >> "$LOG_FILE" 2>&1; then
+    echo "[SUCCESS] BIND reloaded." >> "$LOG_FILE"
+  else
+    echo "[ERROR] Failed to reload BIND." >> "$LOG_FILE"
+  fi
 else
-  echo "[ERROR] Failed to reload BIND." >> "$LOG_FILE"
+  echo "[ERROR] Not reloading BIND due to validation failures." >> "$LOG_FILE"
 fi
