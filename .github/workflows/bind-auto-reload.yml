@@ -16,9 +16,9 @@ jobs:
     - name: Run DNS Serial Update Script
       run: |
         # Ensure the script is executable
-        chmod +x /etc/bind/scripts/update_serial.sh
+        sudo chmod +x /etc/bind/scripts/update_serial.sh
         # Execute the script
-        /etc/bind/scripts/update_serial.sh
+        sudo /etc/bind/scripts/update_serial.sh
       # If your runner user needs specific permissions, you might need to
       # consider running this step as root if you can't configure sudoers
       # for the specific commands within the script. However, configuring
