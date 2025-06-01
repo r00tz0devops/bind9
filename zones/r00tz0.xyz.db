@@ -33,17 +33,6 @@ xcp		 IN      A      10.0.1.80
 xo		 IN      A      10.0.1.99
 coder            IN      A      10.0.1.6
 vscode         IN      A      10.0.1.6
-polo      IN      A      10.0.1.6
-polo1      IN      A      10.0.1.6
-polo2      IN      A      10.0.1.6
-polo3      IN      A      10.0.1.6
-polo4      IN      A      10.0.1.6
-polo5      IN      A      10.0.1.6
-polo6      IN      A      10.0.1.6
-polo7      IN      A      10.0.1.6
-polo8      IN      A      10.0.1.6
-polo9      IN      A      10.0.1.6
-polo10      IN      A      10.0.1.6
-polo11      IN      A      10.0.1.6
-polo12      IN      A      10.0.1.6
+cola           IN      A      10.0.1.6
+
 
