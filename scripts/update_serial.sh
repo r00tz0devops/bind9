@@ -6,9 +6,15 @@ DATE=$(date +%Y%m%d)
 USER=$(whoami)
 LOG_FILE="/var/log/bind_serial_update.log"
 
+echo "[INFO] Syncing fresh Git zone files to BIND zone directory..." >> "$LOG_FILE"
+sudo cp "$ZONES_SRC"/*.db "$ZONES_DEST"/
+sudo chown bind:bind "$ZONES_DEST"/*.db
+sudo chmod 644 "$ZONES_DEST"/*.db
+
 echo "[INFO] Updating serials on: $(date) by user: $USER" >> "$LOG_FILE"
 
-for zone in "$ZONES_SRC"/*.db; do
+# Update serials directly in the destination directory
+for zone in "$ZONES_DEST"/*.db; do
   echo "[INFO] Checking $zone..." >> "$LOG_FILE"
 
   current_serial=$(grep -oP '^\s*\d{10}(?=\s*;\s*Serial)' "$zone")
@@ -32,16 +38,11 @@ for zone in "$ZONES_SRC"/*.db; do
   fi
 done
 
-echo "[INFO] Validating and syncing zones..." >> "$LOG_FILE"
-
-for zone_file in "$ZONES_SRC"/*.db; do
+echo "[INFO] Validating updated zones..." >> "$LOG_FILE"
+for zone_file in "$ZONES_DEST"/*.db; do
   zone_name=$(basename "$zone_file" .db)
   if sudo named-checkzone "$zone_name" "$zone_file"; then
     echo "[VALID] $zone_name" >> "$LOG_FILE"
-    sudo cp "$zone_file" "$ZONES_DEST/$zone_name.db"
-    sudo chown bind:bind "$ZONES_DEST/$zone_name.db"
-    sudo chmod 644 "$ZONES_DEST/$zone_name.db"
-    echo "[SYNCED] $zone_file → $ZONES_DEST/$zone_name.db" >> "$LOG_FILE"
   else
     echo "[ERROR] Zone validation failed: $zone_name" >> "$LOG_FILE"
   fi

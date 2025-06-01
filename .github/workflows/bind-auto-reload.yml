@@ -1,18 +1,25 @@
-name: Auto Reload BIND Config
+name: Update BIND Zones
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main # Or your default branch
 
 jobs:
-  reload-bind:
-    runs-on: self-hosted
+  update-dns:
+    runs-on: self-hosted # Assuming you're using a self-hosted runner on ns1
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Update Serial and Reload BIND
-        run: |
-          sudo /etc/bind/scripts/update_serial.sh
-          sudo systemctl reload bind9
+    - name: Run DNS Serial Update Script
+      run: |
+        # Ensure the script is executable
+        chmod +x /etc/bind/scripts/update_serial.sh
+        # Execute the script
+        /etc/bind/scripts/update_serial.sh
+      # If your runner user needs specific permissions, you might need to
+      # consider running this step as root if you can't configure sudoers
+      # for the specific commands within the script. However, configuring
+      # sudoers is generally preferred for security.
