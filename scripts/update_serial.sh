@@ -6,17 +6,10 @@ DATE=$(date +%Y%m%d)
 USER=$(whoami)
 LOG_FILE="/var/log/bind_serial_update.log"
 
-echo "[INFO] Syncing fresh Git zone files to BIND zone directory..." >> "$LOG_FILE"
-sudo cp "$ZONES_SRC"/*.db "$ZONES_DEST"/
-sudo chown bind:bind "$ZONES_DEST"/*.db
-sudo chmod 644 "$ZONES_DEST"/*.db
-
 echo "[INFO] Updating serials on: $(date) by user: $USER" >> "$LOG_FILE"
 
-# Update serials directly in the destination directory
-for zone in "$ZONES_DEST"/*.db; do
+for zone in "$ZONES_SRC"/*.db; do
   echo "[INFO] Checking $zone..." >> "$LOG_FILE"
-
   current_serial=$(grep -oP '^\s*\d{10}(?=\s*;\s*Serial)' "$zone")
 
   if [[ -n "$current_serial" ]]; then
@@ -30,7 +23,6 @@ for zone in "$ZONES_DEST"/*.db; do
     fi
 
     new_serial="${DATE}$(printf '%02d' $revision)"
-
     sed -i "s/$current_serial[[:space:]]*;[[:space:]]*Serial/$new_serial ; Serial/" "$zone"
     echo "[UPDATED] $zone: $current_serial -> $new_serial" >> "$LOG_FILE"
   else
@@ -38,18 +30,25 @@ for zone in "$ZONES_DEST"/*.db; do
   fi
 done
 
-echo "[INFO] Validating updated zones..." >> "$LOG_FILE"
-for zone_file in "$ZONES_DEST"/*.db; do
-  zone_name=$(basename "$zone_file" .db)
-  if sudo named-checkzone "$zone_name" "$zone_file"; then
+echo "[INFO] Validating and syncing zones..." >> "$LOG_FILE"
+
+for zone_file in "$ZONES_SRC"/*.db; do
+  zone_name=$(basename "$zone_file")  # e.g. db.10.0.1 or r00tz0.xyz.db
+  zone_short=${zone_name%.db}         # e.g. db.10.0.1 -> db.10.0.1, r00tz0.xyz.db -> r00tz0.xyz
+
+  if named-checkzone "$zone_short" "$zone_file" >> "$LOG_FILE" 2>&1; then
     echo "[VALID] $zone_name" >> "$LOG_FILE"
+    cp "$zone_file" "$ZONES_DEST/$zone_name"
+    chown bind:bind "$ZONES_DEST/$zone_name"
+    chmod 644 "$ZONES_DEST/$zone_name"
+    echo "[SYNCED] $zone_file → $ZONES_DEST/$zone_name" >> "$LOG_FILE"
   else
     echo "[ERROR] Zone validation failed: $zone_name" >> "$LOG_FILE"
   fi
 done
 
 echo "[INFO] Reloading BIND..." >> "$LOG_FILE"
-if sudo systemctl reload bind9; then
+if systemctl reload bind9; then
   echo "[SUCCESS] BIND reloaded." >> "$LOG_FILE"
 else
   echo "[ERROR] Failed to reload BIND." >> "$LOG_FILE"
