@@ -3,23 +3,16 @@ name: Update BIND Zones
 on:
   push:
     branches:
-      - main # Or your default branch
+      - main
 
 jobs:
   update-dns:
-    runs-on: self-hosted # Assuming you're using a self-hosted runner on ns1
+    runs-on: self-hosted  # Your runner on ns1
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Run DNS Serial Update Script
-      run: |
-        # Ensure the script is executable
-        sudo chmod +x /etc/bind/scripts/update_serial.sh
-        # Execute the script
-        sudo /etc/bind/scripts/update_serial.sh
-      # If your runner user needs specific permissions, you might need to
-      # consider running this step as root if you can't configure sudoers
-      # for the specific commands within the script. However, configuring
-      # sudoers is generally preferred for security.
+      - name: Run DNS Serial Update Script
+        run: |
+          sudo /bin/bash /etc/bind/scripts/update_serial.sh
