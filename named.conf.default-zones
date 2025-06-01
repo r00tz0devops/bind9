@@ -10,6 +10,13 @@ zone "localhost" {
 	file "/etc/bind/db.local";
 };
 
+options {
+    // existing options...
+
+    // Disable IPv6
+    prefer-ipv4 yes;
+};
+
 zone "127.in-addr.arpa" {
 	type master;
 	file "/etc/bind/db.127";
